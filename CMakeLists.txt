@@ -69,7 +69,15 @@ target_link_libraries(vk-bootstrap
         vk-bootstrap-compiler-warnings
         vk-bootstrap-vulkan-headers
         ${CMAKE_DL_LIBS})
-target_compile_features(vk-bootstrap PUBLIC cxx_std_14)
+
+# Android is causing issues on C++20, and due to how target_compile_features interacts with command line order
+# and PUBLIC props, we need to just use target_compile_options directly on Android until the NDK/CMake supports
+# cxx_std_20 properly and not using gnu extensions.
+if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL Android)
+  target_compile_features(vk-bootstrap PUBLIC cxx_std_14)
+else()
+  target_compile_options(vk-bootstrap PRIVATE -std=c++14)
+endif()
 
 include(GNUInstallDirs)
 install(FILES src/VkBootstrap.h src/VkBootstrapDispatch.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
