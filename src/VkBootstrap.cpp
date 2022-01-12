@@ -864,7 +864,7 @@ void destroy_debug_messenger(VkInstance const instance, VkDebugUtilsMessengerEXT
 namespace detail {
 
 std::vector<const char*> check_device_extension_support(
-    VkPhysicalDevice device, std::vector<const char*> desired_extensions) {
+    VkPhysicalDevice device, std::vector<const char*> desired_extensions, bool addPlatformRequiredExtensions = false) {
 	std::vector<VkExtensionProperties> available_extensions;
 	auto available_extensions_ret = detail::get_vector<VkExtensionProperties>(
 	    available_extensions, detail::vulkan_functions().fp_vkEnumerateDeviceExtensionProperties, device, nullptr);
@@ -879,6 +879,28 @@ std::vector<const char*> check_device_extension_support(
 			}
 		}
 	}
+
+	if (addPlatformRequiredExtensions) {
+		// Check to see if this device is advertising the portability subset. If it is, then it's
+		// required to enable it for use.
+		auto portabilitySubsetRequiredIt = std::find_if(
+		    available_extensions.begin(), available_extensions.end(), [](auto const& extProp) {
+			    return 0 == strcmp("VK_KHR_portability_subset", extProp.extensionName);
+		    });
+
+		if (available_extensions.end() != portabilitySubsetRequiredIt) {
+			// Check to see if the user has already enabled the portability subset.
+			auto portabilitySubsetEnabledIt = std::find_if(
+			    extensions_to_enable.begin(), extensions_to_enable.end(), [](const char* enabledExtension) {
+				    return 0 == strcmp("VK_KHR_portability_subset", enabledExtension);
+			    });
+
+			if (extensions_to_enable.end() == portabilitySubsetEnabledIt) {
+				extensions_to_enable.push_back("VK_KHR_portability_subset");
+			}
+		}
+	}
+
 	return extensions_to_enable;
 }
 
@@ -1314,7 +1336,7 @@ PhysicalDevice PhysicalDeviceSelector::populate_physical_device(
 	    criteria.required_extensions.begin(),
 	    criteria.required_extensions.end());
 	auto desired_extensions_supported =
-	    detail::check_device_extension_support(out_device.physical_device, criteria.desired_extensions);
+	    detail::check_device_extension_support(out_device.physical_device, criteria.desired_extensions, true);
 	out_device.extensions_to_enable.insert(out_device.extensions_to_enable.end(),
 	    desired_extensions_supported.begin(),
 	    desired_extensions_supported.end());
