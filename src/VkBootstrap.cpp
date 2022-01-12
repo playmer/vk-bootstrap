@@ -879,6 +879,27 @@ std::vector<const char*> check_device_extension_support(
 			}
 		}
 	}
+
+	// Check to see if this device is advertising the portability subset. If it is, then it's
+	// required to enable it for use.
+	auto portabilitySubsetRequiredIt =
+	    std::find_if(available_extensions.begin(), available_extensions.end(), [](auto const& extProp) {
+		    return 0 == strcmp("VK_KHR_portability_subset", extProp.extensionName);
+	    });
+
+	if (available_extensions.end() != portabilitySubsetRequiredIt) {
+		// Check to see if the user has already enabled the portability subset.
+		auto portabilitySubsetEnabledIt = 
+		    std::find_if(
+		    extensions_to_enable.begin(), extensions_to_enable.end(), [](const char* enabledExtension) {
+			    return 0 == strcmp("VK_KHR_portability_subset", enabledExtension);
+		    });
+
+		if (extensions_to_enable.end() == portabilitySubsetEnabledIt) {
+			extensions_to_enable.push_back("VK_KHR_portability_subset");
+		}
+	}
+
 	return extensions_to_enable;
 }
 
