@@ -1456,11 +1456,11 @@ detail::Result<uint32_t> Device::get_dedicated_queue_index(QueueType type) const
 	return index;
 }
 
-detail::Result<VkQueue> Device::get_queue(QueueType type) const {
+detail::Result<VkQueue> Device::get_queue(QueueType type, size_t queueIndex) const {
 	auto index = get_queue_index(type);
 	if (!index.has_value()) return { index.error() };
 	VkQueue out_queue;
-	internal_table.fp_vkGetDeviceQueue(device, index.value(), 0, &out_queue);
+	internal_table.fp_vkGetDeviceQueue(device, index.value(), queueIndex, &out_queue);
 	return out_queue;
 }
 detail::Result<VkQueue> Device::get_dedicated_queue(QueueType type) const {
@@ -1481,7 +1481,13 @@ Device::operator VkDevice() const { return this->device; }
 
 CustomQueueDescription::CustomQueueDescription(uint32_t index, uint32_t count, std::vector<float> priorities)
 : index(index), count(count), priorities(priorities) {
-	assert(count == priorities.size());
+	this->priorities.resize(count, 1.0f);
+	auto scaleDown = 1.0f / this->priorities.size();
+	auto currentScale = 1.0f;
+	for (auto& priority : this->priorities) {
+		priority = currentScale;
+		currentScale -= scaleDown;
+	}
 }
 
 void destroy_device(Device device) {
@@ -1497,7 +1503,8 @@ detail::Result<Device> DeviceBuilder::build() const {
 
 	if (queue_descriptions.size() == 0) {
 		for (uint32_t i = 0; i < physical_device.queue_families.size(); i++) {
-			queue_descriptions.push_back(CustomQueueDescription{ i, 1, std::vector<float>{ 1.0f } });
+			auto& family = physical_device.queue_families[i];
+			queue_descriptions.push_back(CustomQueueDescription{ i, family.queueCount, std::vector<float>{ 1.0f } });
 		}
 	}
 
